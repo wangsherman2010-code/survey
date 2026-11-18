@@ -108,12 +108,19 @@ function card(q, i) {
     const buildFu = () => {
       fuBox.textContent = '';
       const on = el('input'); on.type = 'checkbox'; on.checked = !!q.followUp;
-      on.onchange = () => { if (on.checked) q.followUp = { label: '', placeholder: '', when: [] }; else delete q.followUp; mark(); buildFu(); };
+      on.onchange = () => { if (on.checked) q.followUp = { type: 'text', label: '', placeholder: '', when: [] }; else delete q.followUp; mark(); buildFu(); };
       const l = el('label', 'check'); l.append(on, document.createTextNode(' Ask a follow-up question for some answers')); fuBox.append(l);
       if (!q.followUp) return;
       q.followUp.when = (q.followUp.when || []).filter((o) => q.options.includes(o));
       const fu = q.followUp, box = el('div', 'fuinner');
-      box.append(field('Follow-up wording', area(fu.label, 2, 300, (v) => (fu.label = v))), field('Hint inside the box (optional)', textInput(fu.placeholder, '', 150, (v) => (fu.placeholder = v))));
+      fu.type = fu.type === 'choice' ? 'choice' : 'text';
+      const ftype = el('select');
+      [['text', 'Typed answer'], ['choice', 'Choose one']].forEach(([k, v]) => { const o = el('option', '', v); o.value = k; ftype.append(o); });
+      ftype.value = fu.type;
+      ftype.onchange = () => { fu.type = ftype.value; if (fu.type === 'choice' && !fu.options) fu.options = ['Option 1', 'Option 2']; mark(); buildFu(); };
+      box.append(field('Follow-up wording', area(fu.label, 2, 300, (v) => (fu.label = v))), field('Follow-up answer type', ftype));
+      if (fu.type === 'choice') box.append(field('Follow-up choices (one per line)', area((fu.options || []).join('\n'), 4, 700, (v) => (fu.options = v.split('\n').map((x) => x.trim()).filter(Boolean)))));
+      else box.append(field('Hint inside the box (optional)', textInput(fu.placeholder, '', 150, (v) => (fu.placeholder = v))));
       const w = el('div', 'when'); w.append(el('span', '', 'Show it when the answer is:'));
       q.options.forEach((o) => {
         const cb = el('input'); cb.type = 'checkbox'; cb.checked = fu.when.includes(o);

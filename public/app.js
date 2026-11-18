@@ -22,11 +22,22 @@ fetch(`/api/survey/${slug}`).then((r) => r.json()).then((s) => {
       const row = el('div', 'choices');
       q.options.forEach((o) => { const b = el('button', 'chip', o); b.type = 'button';
         b.onclick = () => { answers[q.id] = o; [...row.children].forEach((x) => x.classList.toggle('on', x === b));
-          if (q.followUp) { const show = q.followUp.when.includes(o); fu.hidden = !show; if (!show) { answers[q.followUp.id] = ''; fu.querySelector('textarea').value = ''; } } }; row.append(b); });
+          if (q.followUp) { const show = q.followUp.when.includes(o); fu.hidden = !show; if (!show) { answers[q.followUp.id] = ''; fu.querySelectorAll('textarea').forEach((t) => (t.value = '')); fu.querySelectorAll('.chip.on').forEach((x) => x.classList.remove('on')); } } }; row.append(b); });
       c.append(row);
       var fu = el('div', 'followup'); fu.hidden = true;
-      if (q.followUp) { fu.append(el('h4', '', q.followUp.label)); const ft = el('textarea'); ft.rows = q.rows || 4; ft.maxLength = 2000; ft.placeholder = q.followUp.placeholder || '';
-        ft.oninput = () => (answers[q.followUp.id] = ft.value); fu.append(ft); c.append(fu); }
+      if (q.followUp) {
+        const f = q.followUp; fu.append(el('h4', '', f.label));
+        if (f.type === 'choice') {
+          const frow = el('div', 'choices');
+          f.options.forEach((o) => { const b = el('button', 'chip', o); b.type = 'button';
+            b.onclick = () => { answers[f.id] = o; [...frow.children].forEach((x) => x.classList.toggle('on', x === b)); }; frow.append(b); });
+          fu.append(frow);
+        } else {
+          const ft = el('textarea'); ft.rows = 4; ft.maxLength = 2000; ft.placeholder = f.placeholder || '';
+          ft.oninput = () => (answers[f.id] = ft.value); fu.append(ft);
+        }
+        c.append(fu);
+      }
     } else {
       const t = el('textarea'); t.rows = q.rows || 4; t.maxLength = 2000; t.placeholder = q.placeholder || '';
       t.oninput = () => (answers[q.id] = t.value); c.append(t);

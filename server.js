@@ -128,8 +128,15 @@ function normalizeSurvey(input, old) {
         if (!fl) return err(`Question ${num}: the follow-up question needs some wording.`);
         const when = options.filter((o) => Array.isArray(q.followUp.when) && q.followUp.when.includes(o));
         if (!when.length) return err(`Question ${num}: choose which answers should show the follow-up.`);
-        out.followUp = { id: takeId(q.followUp.id, oldF), label: fl, when };
-        const ph = str(q.followUp.placeholder, 150); if (ph) out.followUp.placeholder = ph;
+        const ftype = q.followUp.type === 'choice' ? 'choice' : 'text';
+        out.followUp = { id: takeId(q.followUp.id, oldF), type: ftype, label: fl, when };
+        if (ftype === 'choice') {
+          const fopts = [...new Set((Array.isArray(q.followUp.options) ? q.followUp.options : []).map((o) => str(o, 60)).filter(Boolean))];
+          if (fopts.length < 2 || fopts.length > 10) return err(`Question ${num}: the follow-up needs between 2 and 10 different choices.`);
+          out.followUp.options = fopts;
+        } else {
+          const ph = str(q.followUp.placeholder, 150); if (ph) out.followUp.placeholder = ph;
+        }
       }
     }
     questions.push(out);
@@ -164,7 +171,11 @@ function validateAnswers(survey, body) {
     if (q.type === 'choice' && v && !q.options.includes(v)) return { error: `Invalid answer for "${q.label}"` };
     if (q.required && !v) return { error: `Please answer: ${q.label}` };
     answers[q.id] = v;
-    if (q.followUp) answers[q.followUp.id] = q.followUp.when.includes(v) ? clean(given[q.followUp.id]) : '';
+    if (q.followUp) {
+      const f = q.followUp, fv = f.when.includes(v) ? clean(given[f.id]) : '';
+      if (fv && f.type === 'choice' && !f.options.includes(fv)) return { error: `Invalid answer for "${f.label}"` };
+      answers[f.id] = fv;
+    }
   }
   // Anonymity is enforced server-side: when anonymous, the name is never stored.
   const anonymous = body.anonymous !== false;
@@ -225,15 +236,22 @@ async function adminSurvey(req, slug) {
     const pct = total ? Math.round((n * 100) / total) : 0;
     return `<div class="bar"><span class="bl">${esc(label)}</span><div class="bt"><i style="width:${pct}%"></i></div><b>${n}</b><small>${pct}%</small></div>`;
   }).join('');
+  const tally = (opts, vals) => { // bars for each choice, plus any answers to choices that were later renamed/removed
+    const extra = [...new Set(vals.filter((v) => !opts.includes(v)))];
+    return bars([...opts.map((o) => [o, vals.filter((v) => v === o).length]), ...extra.map((o) => [`${o} (older choice)`, vals.filter((v) => v === o).length])], vals.length);
+  };
   const questionCards = s.questions.map((q, i) => {
     const vals = rs.map((r) => r.answers[q.id]).filter(Boolean);
     let body = '';
     if (q.type === 'choice' || q.type === 'rating') {
       const opts = q.type === 'choice' ? q.options : ['1', '2', '3', '4', '5'];
-      const extra = [...new Set(vals.filter((v) => !opts.includes(v)))]; // answers to choices that were later renamed/removed
-      body += bars([...opts.map((o) => [o, vals.filter((v) => v === o).length]), ...extra.map((o) => [`${o} (older choice)`, vals.filter((v) => v === o).length])], vals.length);
+      body += tally(opts, vals);
       if (q.type === 'rating' && vals.length) body += `<p class="muted">Average: <b>${(vals.reduce((a, v) => a + +v, 0) / vals.length).toFixed(1)}</b> / 5</p>`;
-      if (q.followUp) body += `<h4 class="fuh">Follow-up: ${esc(q.followUp.label)}</h4>${list(q.followUp.id, q.id)}`;
+      if (q.followUp) {
+        const fvals = rs.map((r) => r.answers[q.followUp.id]).filter(Boolean);
+        body += `<h4 class="fuh">Follow-up: ${esc(q.followUp.label)}</h4>` +
+          (q.followUp.type === 'choice' ? `<p class="muted">${fvals.length} answer${fvals.length === 1 ? '' : 's'}</p>${tally(q.followUp.options, fvals)}` : list(q.followUp.id, q.id));
+      }
     } else body = list(q.id);
     return `<section class="card qv"><h3>${i + 1}. ${esc(q.label)}</h3><p class="muted">${vals.length} answer${vals.length === 1 ? '' : 's'}</p>${body}</section>`;
   }).join('');
