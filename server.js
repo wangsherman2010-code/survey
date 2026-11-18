@@ -15,8 +15,9 @@ const DELETED_DIR = path.join(DATA_DIR, 'deleted');
 const SEED_DIR = path.join(__dirname, 'seed-surveys');
 const PUBLIC = path.join(__dirname, 'public');
 
-if (ADMIN_KEY === 'changeme' && (process.env.BASE_URL || process.env.NODE_ENV === 'production')) {
-  console.error('Refusing to start: set a real ADMIN_KEY (not "changeme") when running in production.');
+const PROD = process.env.BASE_URL || process.env.NODE_ENV === 'production';
+if (PROD && (ADMIN_KEY === 'changeme' || ADMIN_KEY.length < 6)) {
+  console.error('Refusing to start: set an ADMIN_KEY of at least 6 characters (not "changeme") when running in production.');
   process.exit(1);
 }
 fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -197,19 +198,63 @@ async function adminHome(req) {
 
 async function adminSurvey(req, slug) {
   const s = loadSurvey(slug), rs = loadResponses(slug), url = `${baseUrl(req)}/s/${slug}`, cols = columns(s);
-  const stats = s.questions.filter((q) => q.type === 'choice' || q.type === 'rating').map((q) => {
-    const opts = q.type === 'choice' ? q.options : ['1', '2', '3', '4', '5'];
-    const parts = opts.map((o) => `${esc(o)} <b>${rs.filter((r) => r.answers[q.id] === o).length}</b>`).join(' · ');
-    return `<div class="stat"><span>${esc(q.label)}</span><p>${parts}</p></div>`;
+  const newest = rs.slice().reverse();
+  const who = (r) => esc(r.name || 'Anonymous');
+  const when = (r) => esc(new Date(r.at).toLocaleString());
+
+  // view 1: one card per submission
+  const bySubmission = newest.map((r) => `<article class="card"><header><strong>${who(r)}</strong><time>${when(r)}</time></header>
+    ${cols.map(([id, label]) => (r.answers[id] ? `<p><span>${esc(label)}</span>${esc(r.answers[id])}</p>` : '')).join('')}</article>`).join('')
+    || '<p class="muted">No responses yet.</p>';
+
+  // view 2: one card per question, with all answers (and a tally for choice / rating questions)
+  const list = (id, tagId) => {
+    const items = newest.filter((r) => r.answers[id]);
+    return items.length
+      ? `<ul class="alist">${items.map((r) => `<li>${tagId ? `<em class="tag">${esc(r.answers[tagId])}</em>` : ''}<span>${esc(r.answers[id])}</span><small>${who(r)} · ${when(r)}</small></li>`).join('')}</ul>`
+      : '<p class="muted">No answers yet.</p>';
+  };
+  const bars = (rows, total) => rows.map(([label, n]) => {
+    const pct = total ? Math.round((n * 100) / total) : 0;
+    return `<div class="bar"><span class="bl">${esc(label)}</span><div class="bt"><i style="width:${pct}%"></i></div><b>${n}</b><small>${pct}%</small></div>`;
   }).join('');
-  const cards = rs.slice().reverse().map((r) => `<article class="card"><header><strong>${esc(r.name || 'Anonymous')}</strong><time>${new Date(r.at).toLocaleString()}</time></header>
-    ${cols.map(([id, label]) => (r.answers[id] ? `<p><span>${esc(label)}</span>${esc(r.answers[id])}</p>` : '')).join('')}</article>`).join('');
+  const questionCards = s.questions.map((q, i) => {
+    const vals = rs.map((r) => r.answers[q.id]).filter(Boolean);
+    let body = '';
+    if (q.type === 'choice' || q.type === 'rating') {
+      const opts = q.type === 'choice' ? q.options : ['1', '2', '3', '4', '5'];
+      const extra = [...new Set(vals.filter((v) => !opts.includes(v)))]; // answers to choices that were later renamed/removed
+      body += bars([...opts.map((o) => [o, vals.filter((v) => v === o).length]), ...extra.map((o) => [`${o} (older choice)`, vals.filter((v) => v === o).length])], vals.length);
+      if (q.type === 'rating' && vals.length) body += `<p class="muted">Average: <b>${(vals.reduce((a, v) => a + +v, 0) / vals.length).toFixed(1)}</b> / 5</p>`;
+      if (q.followUp) body += `<h4 class="fuh">Follow-up: ${esc(q.followUp.label)}</h4>${list(q.followUp.id, q.id)}`;
+    } else body = list(q.id);
+    return `<section class="card qv"><h3>${i + 1}. ${esc(q.label)}</h3><p class="muted">${vals.length} answer${vals.length === 1 ? '' : 's'}</p>${body}</section>`;
+  }).join('');
+  const retiredCards = (s.retired || []).filter((r) => rs.some((x) => x.answers[r.id])).map((r) =>
+    `<section class="card qv"><h3>${esc(r.label)} <small>(removed question)</small></h3>${list(r.id)}</section>`).join('');
+
   return page(`Results – ${s.title}`, `<h1>${esc(s.title)}</h1>
     <section class="card qr"><div class="qrbox">${await qrSvg(url, 1)}</div><div><h2>Scan to respond</h2><p><a href="${esc(url)}">${esc(url)}</a></p>
     <p><a class="btn" href="/admin/s/${slug}/edit">Edit questions</a> <a class="btn ghost" href="/admin/s/${slug}/export.csv">Download CSV</a>
     <a class="btn ghost" href="/qr/${slug}.svg" download="${slug}-qr.svg">Download QR (SVG)</a></p></div></section>
-    <h2>${rs.length} response${rs.length === 1 ? '' : 's'}</h2><div class="stats">${stats}</div>${cards || '<p class="muted">No responses yet.</p>'}
-    <script>setTimeout(()=>location.reload(),30000)</script>`);
+    <div class="resbar"><h2>${rs.length} response${rs.length === 1 ? '' : 's'}</h2>
+      <div class="seg" role="tablist"><button type="button" data-v="submission">By submission</button><button type="button" data-v="question">By question</button></div></div>
+    <div id="v-submission">${bySubmission}</div>
+    <div id="v-question" hidden>${rs.length ? questionCards + retiredCards : '<p class="muted">No responses yet.</p>'}</div>
+    <script>
+      (function () {
+        var v = 'submission'; try { v = localStorage.getItem('resultsView') || v; } catch (e) {}
+        function show(x) {
+          document.getElementById('v-submission').hidden = x !== 'submission';
+          document.getElementById('v-question').hidden = x !== 'question';
+          document.querySelectorAll('.seg button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === x); });
+          try { localStorage.setItem('resultsView', x); } catch (e) {}
+        }
+        document.querySelectorAll('.seg button').forEach(function (b) { b.onclick = function () { show(b.dataset.v); }; });
+        show(v);
+        setTimeout(function () { location.reload(); }, 30000);
+      })();
+    </script>`);
 }
 
 const adminEditPage = (slug, s) => page(`Edit – ${s.title}`, `<h1>Edit survey</h1>

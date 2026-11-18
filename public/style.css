@@ -59,3 +59,15 @@ code{background:var(--line);padding:2px 6px;border-radius:6px}.admin a{color:var
 .pv .pc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}.pv .pc p{margin:0 0 10px;font-weight:600;font-size:.95rem}
 .pv .pchips{display:flex;gap:8px;flex-wrap:wrap}.pv .pchips span{padding:6px 14px;border-radius:99px;border:2px solid var(--line);font-size:.85rem}.pv .pchips .on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .pv .pb{margin-top:12px;text-align:center;padding:10px;border-radius:10px;background:var(--accent);color:var(--on-accent);font-weight:700}
+
+/* results: view switch, per-question cards */
+.resbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:18px 0 4px}.resbar h2{margin:0}
+.seg{display:inline-flex;border:2px solid var(--accent2);border-radius:999px;overflow:hidden}.seg button{border:0;background:transparent;color:var(--accent2);font:inherit;font-weight:600;padding:8px 16px;cursor:pointer}
+.seg button.on{background:var(--accent2);color:#fff}
+.qv h3{margin:0 0 2px}.qv>p.muted{margin:0 0 12px;font-size:.85rem}
+.bar{display:grid;grid-template-columns:minmax(70px,150px) 1fr auto 3ch;gap:10px;align-items:center;margin:6px 0}.bl{font-size:.9rem;overflow-wrap:anywhere}
+.bt{height:12px;background:var(--line);border-radius:99px;overflow:hidden}.bt i{display:block;height:100%;background:var(--accent);border-radius:99px}.bar b{text-align:right}.bar small{color:var(--muted)}
+.fuh{margin:18px 0 6px;font-size:.95rem;color:var(--accent2);border-top:1px dashed var(--line);padding-top:14px}
+.alist{list-style:none;margin:8px 0 0;padding:0}.alist li{padding:10px 0;border-top:1px solid var(--line)}.alist li:first-child{border-top:0}
+.alist span{display:block}.alist small{display:block;color:var(--muted);font-size:.8rem;margin-top:2px}
+.tag{display:inline-block;font-style:normal;font-size:.75rem;font-weight:700;background:var(--accent2);color:#fff;border-radius:99px;padding:1px 10px;margin-bottom:4px}
