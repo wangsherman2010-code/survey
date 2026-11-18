@@ -1,27 +1,33 @@
 # Speech Surveys
 
-Mobile-first feedback forms, one QR code per survey, and a results dashboard. Participants can give a name or stay anonymous.
+Mobile-first feedback forms, one QR code per survey, an in-browser question editor and a results dashboard.
+Participants can give a name or stay anonymous.
 
 ```bash
 npm install
-ADMIN_KEY=your-secret BASE_URL=https://survey.yoursite.com node server.js
+ADMIN_KEY=your-long-secret BASE_URL=https://survey.yoursite.com DATA_DIR=/var/lib/survey node server.js
 ```
+
+The server refuses to start in production (when `BASE_URL` is set) with the default key.
+
+## Admin (log in with your admin key at `/admin`)
+
+- Create a survey (blank, or a copy of an existing one) and edit its title, intro, thank-you message and questions.
+- Question types: typed answer, choose-one (with an optional follow-up question for chosen answers), rating 1-5.
+- Results, CSV download and printable QR code for each survey.
+- Deleting a survey archives it (and its responses) in `DATA_DIR/deleted/`.
+- Editing keeps existing answers. Deleted questions stay in the results and CSV marked "(removed)".
+- Wrong-key attempts are limited to 10 per 15 minutes per address.
+
+## Public URLs
 
 | URL | What |
 | --- | --- |
 | `/s/<slug>` | A survey (e.g. `/s/speech`) |
-| `/admin?key=…` | All surveys: QR codes, counts, links |
-| `/admin/s/<slug>?key=…` | Results for one survey |
-| `/admin/s/<slug>/export.csv?key=…` | CSV download |
 | `/qr/<slug>.svg` | Printable QR code |
 
-## Add a new survey
+## Data
 
-```bash
-node new-survey.js march-speech "March Speech"   # copies surveys/speech.json
-# edit surveys/march-speech.json, then restart the server
-```
-
-Question types: `text`, `choice` (optional `followUp` shown for chosen options), `rating` (1-5).
-Each survey keeps its own responses in `data/<slug>.jsonl` (set `DATA_DIR` to a persistent folder when deploying).
-Anonymous submissions never store a name. Avoid changing a survey's question ids after responses exist.
+Everything lives in `DATA_DIR` (default `./data`): `surveys/*.json` (questions), `<slug>.jsonl` (responses), `deleted/`.
+The first run seeds `surveys/` from `seed-surveys/`. Back up the whole `DATA_DIR` folder.
+Updating the code (`git pull`) never touches your surveys or responses.
