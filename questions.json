@@ -1,0 +1,12 @@
+{
+  "title": "Speech Feedback",
+  "subtitle": "Thank you for listening! Your honest feedback helps me grow as a speaker. It takes about 1 minute.",
+  "thanks": "Thank you! Your feedback has been received.",
+  "questions": [
+    { "id": "q1", "type": "rating", "label": "Overall, how would you rate the speech?", "low": "Needs work", "high": "Excellent", "required": true },
+    { "id": "q2", "type": "rating", "label": "How clear was the main message?", "low": "Unclear", "high": "Crystal clear", "required": true },
+    { "id": "q3", "type": "choice", "label": "How was the pace and delivery?", "options": ["Too slow", "Just right", "Too fast"], "required": true },
+    { "id": "q4", "type": "text", "label": "What worked best for you?", "placeholder": "A moment, story or phrase that stuck…" },
+    { "id": "q5", "type": "text", "label": "What is one thing I could improve?", "placeholder": "Be as specific as you like…" }
+  ]
+}

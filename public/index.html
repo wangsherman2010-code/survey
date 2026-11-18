@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Speech Feedback</title><link rel="stylesheet" href="/style.css"></head>
+<body><main>
+  <form id="f" novalidate>
+    <header class="hero"><h1 id="title"></h1><p id="subtitle"></p></header>
+    <div id="qs"></div>
+    <section class="card who">
+      <label class="switch"><input type="checkbox" id="anon" checked><span></span> Submit anonymously</label>
+      <div id="nameWrap" hidden><label for="name">Your name</label><input id="name" maxlength="80" autocomplete="name" placeholder="Optional display name"></div>
+    </section>
+    <p id="err" class="err" role="alert"></p>
+    <button class="btn" id="go" type="submit">Submit feedback</button>
+  </form>
+  <section id="done" class="card thanks" hidden><div class="tick">✓</div><h2 id="thanks"></h2></section>
+</main><script src="/app.js"></script></body></html>
