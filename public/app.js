@@ -7,9 +7,12 @@ const slug = location.pathname.split('/')[2];
 fetch(`/api/survey/${slug}`).then((r) => r.json()).then((s) => {
   survey = s;
   document.title = s.title; $('#title').textContent = s.title; $('#subtitle').textContent = s.subtitle; $('#thanks').textContent = s.thanks;
+  $('#reqnote').hidden = !s.questions.some((q) => q.required);
   s.questions.forEach((q, i) => {
     const c = el('section', 'card'); c.dataset.id = q.id;
-    c.append(el('h3', '', `${i + 1}. ${q.label}${q.required ? '' : ' (optional)'}`));
+    const h = el('h3', '', `${i + 1}. ${q.label}`);
+    if (q.required) { const star = el('span', 'star', '\u00a0*'); star.setAttribute('aria-label', 'required'); star.title = 'Required'; h.append(star); }
+    c.append(h);
     if (q.type === 'rating') {
       const row = el('div', 'rating');
       for (let n = 1; n <= 5; n++) { const b = el('button', 'dot', n); b.type = 'button'; b.setAttribute('aria-label', `${n} of 5`);
