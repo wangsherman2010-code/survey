@@ -1,0 +1,13 @@
+{
+  "title": "Speech Feedback",
+  "subtitle": "Thank you for listening! A few reflections help me grow as a speaker. It takes about 2 minutes.",
+  "thanks": "Thank you! Your reflections have been received.",
+  "questions": [
+    { "id": "q1", "type": "text", "required": true, "label": "After hearing the speech, what would be the main message in one sentence to you?", "placeholder": "In one sentence…", "rows": 2 },
+    { "id": "q2", "type": "text", "label": "Which specific story or moment stayed with you the most (and why)?", "placeholder": "The moment, and why it stuck…" },
+    { "id": "q3", "type": "text", "label": "Where do you see this message connecting with your own life or work?", "placeholder": "At home, at work, in a situation you face…" },
+    { "id": "q4", "type": "choice", "required": true, "label": "How easy was the flow of the speech to follow?", "options": ["Easy", "Moderate", "Hard"],
+      "followUp": { "id": "q4b", "when": ["Moderate", "Hard"], "label": "Where did it feel confusing or unclear?", "placeholder": "Which part lost you?" } },
+    { "id": "q5", "type": "text", "label": "After hearing this, what is one thing you feel inspired to do or think about differently?", "placeholder": "One thing…" }
+  ]
+}

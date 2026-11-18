@@ -1,17 +1,27 @@
-# Speech Survey
+# Speech Surveys
 
-Mobile-first feedback form + QR code + results dashboard.
+Mobile-first feedback forms, one QR code per survey, and a results dashboard. Participants can give a name or stay anonymous.
 
 ```bash
 npm install
-ADMIN_KEY=your-secret BASE_URL=https://your-public-url node server.js
+ADMIN_KEY=your-secret BASE_URL=https://survey.yoursite.com node server.js
 ```
 
-- `/` – the survey participants see (optional name, or submit anonymously)
-- `/admin?key=your-secret` – QR code, live results, CSV download
-- `/qr.svg` – printable/projectable QR code
-- Edit `questions.json` to change questions (types: `rating`, `choice`, `text`); restyle in `public/style.css`.
-- Responses are stored in `data/responses.jsonl` (set `DATA_DIR` to a persistent disk when deploying).
-- Anonymous submissions never store a name.
+| URL | What |
+| --- | --- |
+| `/s/<slug>` | A survey (e.g. `/s/speech`) |
+| `/admin?key=…` | All surveys: QR codes, counts, links |
+| `/admin/s/<slug>?key=…` | Results for one survey |
+| `/admin/s/<slug>/export.csv?key=…` | CSV download |
+| `/qr/<slug>.svg` | Printable QR code |
 
-The QR code must point to a public URL – deploy to any Node host (Render, Railway, Fly.io) and set `BASE_URL`.
+## Add a new survey
+
+```bash
+node new-survey.js march-speech "March Speech"   # copies surveys/speech.json
+# edit surveys/march-speech.json, then restart the server
+```
+
+Question types: `text`, `choice` (optional `followUp` shown for chosen options), `rating` (1-5).
+Each survey keeps its own responses in `data/<slug>.jsonl` (set `DATA_DIR` to a persistent folder when deploying).
+Anonymous submissions never store a name. Avoid changing a survey's question ids after responses exist.

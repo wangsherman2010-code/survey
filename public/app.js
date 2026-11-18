@@ -3,7 +3,8 @@ const answers = {};
 let survey;
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.textContent = h; return e; };
 
-fetch('/api/survey').then((r) => r.json()).then((s) => {
+const slug = location.pathname.split('/')[2];
+fetch(`/api/survey/${slug}`).then((r) => r.json()).then((s) => {
   survey = s;
   document.title = s.title; $('#title').textContent = s.title; $('#subtitle').textContent = s.subtitle; $('#thanks').textContent = s.thanks;
   s.questions.forEach((q, i) => {
@@ -17,10 +18,14 @@ fetch('/api/survey').then((r) => r.json()).then((s) => {
     } else if (q.type === 'choice') {
       const row = el('div', 'choices');
       q.options.forEach((o) => { const b = el('button', 'chip', o); b.type = 'button';
-        b.onclick = () => { answers[q.id] = o; [...row.children].forEach((x) => x.classList.toggle('on', x === b)); }; row.append(b); });
+        b.onclick = () => { answers[q.id] = o; [...row.children].forEach((x) => x.classList.toggle('on', x === b));
+          if (q.followUp) { const show = q.followUp.when.includes(o); fu.hidden = !show; if (!show) { answers[q.followUp.id] = ''; fu.querySelector('textarea').value = ''; } } }; row.append(b); });
       c.append(row);
+      var fu = el('div', 'followup'); fu.hidden = true;
+      if (q.followUp) { fu.append(el('h4', '', q.followUp.label)); const ft = el('textarea'); ft.rows = q.rows || 4; ft.maxLength = 2000; ft.placeholder = q.followUp.placeholder || '';
+        ft.oninput = () => (answers[q.followUp.id] = ft.value); fu.append(ft); c.append(fu); }
     } else {
-      const t = el('textarea'); t.rows = 3; t.maxLength = 2000; t.placeholder = q.placeholder || '';
+      const t = el('textarea'); t.rows = q.rows || 4; t.maxLength = 2000; t.placeholder = q.placeholder || '';
       t.oninput = () => (answers[q.id] = t.value); c.append(t);
     }
     $('#qs').append(c);
@@ -36,7 +41,7 @@ $('#f').onsubmit = async (e) => {
   if (missing) { const c = document.querySelector(`[data-id=${missing.id}]`); c.classList.add('bad'); c.scrollIntoView({ behavior: 'smooth', block: 'center' }); $('#err').textContent = 'Please answer the highlighted question.'; return; }
   $('#go').disabled = true;
   const anonymous = $('#anon').checked;
-  const r = await fetch('/api/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  const r = await fetch(`/api/submit/${slug}`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ answers, anonymous, name: anonymous ? '' : $('#name').value }) });
   if (r.ok) { $('#f').hidden = true; $('#done').hidden = false; window.scrollTo(0, 0); }
   else { $('#err').textContent = (await r.json()).error || 'Something went wrong. Please try again.'; $('#go').disabled = false; }

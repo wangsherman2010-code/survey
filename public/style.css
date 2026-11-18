@@ -30,3 +30,6 @@ textarea:focus,#name:focus{outline:none;border-color:var(--accent2)}
 .stat b{font-size:2rem;color:var(--accent)}.stat span{display:block;font-size:.8rem;color:var(--muted)}
 article header{display:flex;justify-content:space-between;margin-bottom:8px}article time{color:var(--muted);font-size:.85rem}
 article p{margin:6px 0}article p span{display:block;font-size:.8rem;color:var(--muted)}.muted{color:var(--muted)}
+.followup{margin-top:16px;padding-top:14px;border-top:1px dashed var(--line)}.followup h4{margin:0 0 10px;font-size:.95rem}
+.stat p{margin:6px 0 0;font-size:.95rem}.stat b{font-size:1rem;color:var(--accent)}.stats{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+code{background:var(--line);padding:2px 6px;border-radius:6px}.admin a{color:var(--accent2)}.admin a.btn{color:#fff}.admin a.btn.ghost{color:var(--accent2)}
