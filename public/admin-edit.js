@@ -90,7 +90,7 @@ function card(q, i) {
   sel.onchange = () => {
     q.type = sel.value;
     if ((q.type === 'choice' || q.type === 'multi') && !q.options) q.options = ['Option 1', 'Option 2'];
-    if (q.type !== 'choice') delete q.followUp;
+    if (q.type !== 'choice' && q.type !== 'multi') delete q.followUp;
     mark(); render();
   };
   const req = el('input'); req.type = 'checkbox'; req.checked = !!q.required; req.onchange = () => { q.required = req.checked; mark(); };
@@ -104,7 +104,6 @@ function card(q, i) {
     c.append(r);
   }
   if (q.type === 'choice' || q.type === 'multi') {
-    const isChoice = q.type === 'choice';
     const fuBox = el('div', 'fubox');
     const buildFu = () => {
       fuBox.textContent = '';
@@ -114,15 +113,15 @@ function card(q, i) {
       if (!q.followUp) return;
       q.followUp.when = (q.followUp.when || []).filter((o) => q.options.includes(o));
       const fu = q.followUp, box = el('div', 'fuinner');
-      fu.type = fu.type === 'choice' ? 'choice' : 'text';
+      fu.type = ['choice', 'multi'].includes(fu.type) ? fu.type : 'text';
       const ftype = el('select');
-      [['text', 'Typed answer'], ['choice', 'Choose one']].forEach(([k, v]) => { const o = el('option', '', v); o.value = k; ftype.append(o); });
+      [['text', 'Typed answer'], ['choice', 'Choose one'], ['multi', 'Choose several (tick all that apply)']].forEach(([k, v]) => { const o = el('option', '', v); o.value = k; ftype.append(o); });
       ftype.value = fu.type;
-      ftype.onchange = () => { fu.type = ftype.value; if (fu.type === 'choice' && !fu.options) fu.options = ['Option 1', 'Option 2']; mark(); buildFu(); };
+      ftype.onchange = () => { fu.type = ftype.value; if (fu.type !== 'text' && !fu.options) fu.options = ['Option 1', 'Option 2']; mark(); buildFu(); };
       box.append(field('Follow-up wording', area(fu.label, 2, 300, (v) => (fu.label = v))), field('Follow-up answer type', ftype));
-      if (fu.type === 'choice') box.append(field('Follow-up choices (one per line)', area((fu.options || []).join('\n'), 4, 700, (v) => (fu.options = v.split('\n').map((x) => x.trim()).filter(Boolean)))));
+      if (fu.type !== 'text') box.append(field('Follow-up choices (one per line)', area((fu.options || []).join('\n'), 4, 700, (v) => (fu.options = v.split('\n').map((x) => x.trim()).filter(Boolean)))));
       else box.append(field('Hint inside the box (optional)', textInput(fu.placeholder, '', 150, (v) => (fu.placeholder = v))));
-      const w = el('div', 'when'); w.append(el('span', '', 'Show it when the answer is:'));
+      const w = el('div', 'when'); w.append(el('span', '', q.type === 'multi' ? 'Show it when any of these is ticked:' : 'Show it when the answer is:'));
       q.options.forEach((o) => {
         const cb = el('input'); cb.type = 'checkbox'; cb.checked = fu.when.includes(o);
         cb.onchange = () => { fu.when = q.options.filter((x) => (x === o ? cb.checked : fu.when.includes(x))); mark(); };
@@ -131,8 +130,8 @@ function card(q, i) {
       box.append(w); fuBox.append(box);
     };
     const opts = area((q.options || []).join('\n'), 4, 700, (v) => (q.options = v.split('\n').map((x) => x.trim()).filter(Boolean)));
-    opts.onchange = () => isChoice && buildFu();
-    c.append(field('Choices (one per line)', opts)); if (isChoice) { c.append(fuBox); buildFu(); }
+    opts.onchange = () => buildFu();
+    c.append(field('Choices (one per line)', opts), fuBox); buildFu();
   }
   return c;
 }
