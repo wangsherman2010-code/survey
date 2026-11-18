@@ -16,6 +16,7 @@ The server refuses to start in production (when `BASE_URL` is set) if `ADMIN_KEY
 - Question types: typed answer, choose-one (with an optional follow-up question for chosen answers), rating 1-5.
 - Colours: pick a preset (Toastmasters, Ocean, Forest, Plum, Midnight) or set the page background, cards, text, buttons and title colours individually, with a live preview and readability warnings. Each survey keeps its own colours.
 - Results can be viewed **by submission** or **by question** (tallies for choice/rating questions, all typed answers grouped under each question). The switch remembers your last choice.
+- Delete a single submission, or clear all responses for a survey (e.g. test data), from the results page. Deletion is permanent.
 - Results, CSV download and printable QR code for each survey.
 - Deleting a survey archives it (and its responses) in `DATA_DIR/deleted/`.
 - Editing keeps existing answers. Deleted questions stay in the results and CSV marked "(removed)".

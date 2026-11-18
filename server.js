@@ -37,6 +37,12 @@ const saveSurvey = (slug, s) => { const t = surveyFile(slug) + '.tmp'; fs.writeF
 const loadResponses = (slug) =>
   fs.existsSync(respFile(slug)) ? fs.readFileSync(respFile(slug), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
 
+const writeResponses = (slug, list) => { // rewrite the response file atomically
+  const t = respFile(slug) + '.tmp';
+  fs.writeFileSync(t, list.map((r) => JSON.stringify(r) + '\n').join(''));
+  fs.renameSync(t, respFile(slug));
+};
+
 // ---------- helpers ----------
 const TYPES = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml' };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -204,7 +210,8 @@ async function adminSurvey(req, slug) {
 
   // view 1: one card per submission
   const bySubmission = newest.map((r) => `<article class="card"><header><strong>${who(r)}</strong><time>${when(r)}</time></header>
-    ${cols.map(([id, label]) => (r.answers[id] ? `<p><span>${esc(label)}</span>${esc(r.answers[id])}</p>` : '')).join('')}</article>`).join('')
+    ${cols.map(([id, label]) => (r.answers[id] ? `<p><span>${esc(label)}</span>${esc(r.answers[id])}</p>` : '')).join('')}
+    <button type="button" class="delbtn" data-id="${esc(r.id)}" data-who="${who(r)}">Delete this submission</button></article>`).join('')
     || '<p class="muted">No responses yet.</p>';
 
   // view 2: one card per question, with all answers (and a tally for choice / rating questions)
@@ -241,6 +248,8 @@ async function adminSurvey(req, slug) {
       <div class="seg" role="tablist"><button type="button" data-v="submission">By submission</button><button type="button" data-v="question">By question</button></div></div>
     <div id="v-submission">${bySubmission}</div>
     <div id="v-question" hidden>${rs.length ? questionCards + retiredCards : '<p class="muted">No responses yet.</p>'}</div>
+    ${rs.length ? `<section class="card danger"><h3>Clear responses</h3><p class="muted">Permanently deletes all ${rs.length} response${rs.length === 1 ? '' : 's'} for this survey, for example your test submissions. The survey and its questions stay. Download the CSV first if you might want a copy.</p>
+      <button type="button" class="btn danger" id="delAll">Delete all responses</button></section>` : ''}
     <script>
       (function () {
         var v = 'submission'; try { v = localStorage.getItem('resultsView') || v; } catch (e) {}
@@ -252,6 +261,19 @@ async function adminSurvey(req, slug) {
         }
         document.querySelectorAll('.seg button').forEach(function (b) { b.onclick = function () { show(b.dataset.v); }; });
         show(v);
+        function del(url, msg) {
+          if (!msg()) return;
+          fetch(url, { method: 'DELETE' }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) {
+            if (r.ok) location.reload(); else alert(j.error || 'Could not delete. Please try again.');
+          }); });
+        }
+        document.querySelectorAll('.delbtn').forEach(function (b) { b.onclick = function () {
+          del('/api/admin/survey/${slug}/responses/' + b.dataset.id, function () { return confirm('Delete the submission from ' + b.dataset.who + '? This cannot be undone.'); });
+        }; });
+        var all = document.getElementById('delAll');
+        if (all) all.onclick = function () {
+          del('/api/admin/survey/${slug}/responses', function () { return prompt('This permanently deletes ALL ${rs.length} responses. Type DELETE to confirm.') === 'DELETE'; });
+        };
         setTimeout(function () { location.reload(); }, 30000);
       })();
     </script>`);
@@ -356,6 +378,14 @@ const server = http.createServer(async (req, res) => {
         if (error) return json(400, { error });
         saveSurvey(m[1], survey);
         return json(200, { survey, count: loadResponses(m[1]).length });
+      }
+      if (req.method === 'DELETE' && (m = p.match(/^\/api\/admin\/survey\/([^/]+)\/responses(?:\/([0-9a-fA-F-]{36}))?$/))) {
+        if (!loadSurvey(m[1])) return json(404, { error: 'Not found' });
+        const all = loadResponses(m[1]);
+        const keep = m[2] ? all.filter((r) => r.id !== m[2]) : []; // one response, or all of them
+        if (m[2] && keep.length === all.length) return json(404, { error: 'That response was not found. It may already be deleted.' });
+        writeResponses(m[1], keep);
+        return json(200, { ok: true, remaining: keep.length });
       }
       if (req.method === 'DELETE' && (m = p.match(/^\/api\/admin\/survey\/([^/]+)$/))) {
         if (!loadSurvey(m[1])) return json(404, { error: 'Not found' });
