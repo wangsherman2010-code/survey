@@ -22,10 +22,51 @@ const mini = (txt, title, fn, disabled) => { const b = el('button', 'mini', txt)
 function buildMeta() {
   const m = $('#meta'); m.textContent = '';
   m.append(
-    field('Survey title', textInput(S.title, '', 120, (v) => (S.title = v))),
+    field('Survey title', textInput(S.title, '', 120, (v) => { S.title = v; const h = document.querySelector('.pv h4'); if (h) h.textContent = v || 'Your survey title'; })),
     field('Intro text (shown under the title)', area(S.subtitle, 2, 500, (v) => (S.subtitle = v))),
     field('Thank-you message (shown after submitting)', area(S.thanks, 2, 300, (v) => (S.thanks = v))),
   );
+}
+
+const TH = window.SurveyTheme;
+const COLOUR_LABELS = { bg: 'Page background', card: 'Question cards', ink: 'Text', accent: 'Buttons & selected answers', heading: 'Title' };
+function buildTheme() {
+  const box = $('#theme'); box.textContent = '';
+  box.append(el('h3', '', 'Colours'), el('p', 'muted', 'Choose a look for the page your audience sees. Pick a preset, then fine-tune any colour.'));
+  const cur = () => TH.full(S.theme);
+  const presets = el('div', 'presets');
+  TH.PRESETS.forEach((pr) => {
+    const b = el('button', 'preset'); b.type = 'button';
+    const c = TH.full(pr.theme), sw = el('span', 'sw');
+    [c.bg, c.accent, c.heading].forEach((x) => { const i = el('i'); i.style.background = x; sw.append(i); });
+    b.append(sw, document.createTextNode(pr.name));
+    const same = pr.theme ? S.theme && TH.KEYS.every((k) => (S.theme[k] || '').toLowerCase() === pr.theme[k]) : !S.theme;
+    if (same) b.classList.add('on');
+    b.onclick = () => { if (pr.theme) S.theme = { ...pr.theme }; else delete S.theme; mark(); buildTheme(); };
+    presets.append(b);
+  });
+  box.append(presets);
+  const grid = el('div', 'pickers');
+  TH.KEYS.forEach((k) => {
+    const i = el('input'); i.type = 'color'; i.value = cur()[k];
+    i.oninput = () => { S.theme = { ...cur(), [k]: i.value }; mark(); paint(); presets.querySelectorAll('.on').forEach((x) => x.classList.remove('on')); };
+    const l = el('label', 'pick'); l.append(i, document.createTextNode(COLOUR_LABELS[k])); grid.append(l);
+  });
+  box.append(grid);
+  const warns = el('p', 'warns');
+  const pv = el('div', 'pv');
+  pv.innerHTML = '<h4></h4><div class="pc"><p>How easy was the flow of the speech to follow?</p><div class="pchips"><span class="on">Easy</span><span>Moderate</span><span>Hard</span></div></div><div class="pb">Submit feedback</div>';
+  pv.querySelector('h4').textContent = S.title || 'Your survey title';
+  box.append(warns, el('p', 'muted', 'Preview'), pv);
+  function paint() {
+    const v = TH.themeVars(cur()), c = cur(), w = [];
+    Object.entries(v).forEach(([k, x]) => k.startsWith('--') && pv.style.setProperty(k, x));
+    if (TH.contrast(c.ink, c.card) < 4.5 || TH.contrast(c.ink, c.bg) < 4.5) w.push('The text colour may be hard to read on the background or cards.');
+    if (TH.contrast(c.heading, c.bg) < 3) w.push('The title colour may be hard to see on the page background.');
+    if (TH.contrast(c.accent, c.card) < 3) w.push('The button colour may be hard to see against the cards.');
+    warns.textContent = w.join(' ');
+  }
+  paint();
 }
 
 const swap = (i, j) => { [S.questions[i], S.questions[j]] = [S.questions[j], S.questions[i]]; mark(); render(); };
@@ -98,7 +139,7 @@ function load(j) {
   $('#banner').textContent = j.count
     ? `${j.count} response${j.count === 1 ? '' : 's'} so far. Changing wording keeps existing answers. Deleted questions stay in the results and CSV marked “(removed)”.`
     : 'No responses yet, so you can change anything freely.';
-  buildMeta(); render(); status('');
+  buildMeta(); buildTheme(); render(); status('');
 }
 
 $('#add').onclick = () => { S.questions.push({ type: 'text', label: '', required: false }); mark(); render(); const qs = document.querySelectorAll('.q textarea'); qs[qs.length - 1].focus(); };

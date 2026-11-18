@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const QRCode = require('qrcode');
+const T = require('./public/theme.js');
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_KEY = process.env.ADMIN_KEY || 'changeme';
@@ -134,8 +135,14 @@ function normalizeSurvey(input, old) {
     if (!kept.has(q.id)) retired.set(q.id, { id: q.id, label: q.label });
     if (q.followUp && !kept.has(q.followUp.id)) retired.set(q.followUp.id, { id: q.followUp.id, label: `${q.label} – ${q.followUp.label}` });
   }
+  let theme;
+  if (input.theme && typeof input.theme === 'object') {
+    for (const k of T.KEYS) if (input.theme[k] != null && !T.isHex(input.theme[k])) return err('Colours must be hex codes like #c8553d.');
+    theme = T.full(input.theme);
+  }
   return {
     survey: {
+      ...(theme ? { theme } : {}),
       title, subtitle: str(input.subtitle, 500), thanks: str(input.thanks, 300) || 'Thank you! Your response has been received.',
       questions, retired: [...retired.values()],
     },
@@ -208,11 +215,12 @@ async function adminSurvey(req, slug) {
 const adminEditPage = (slug, s) => page(`Edit – ${s.title}`, `<h1>Edit survey</h1>
   <p id="banner" class="note"></p>
   <section class="card" id="meta"></section>
+  <section class="card" id="theme"></section>
   <div id="qs"></div>
   <button class="btn ghost addq" id="add" type="button">+ Add question</button>
   <div class="savebar"><span id="status" class="status"></span><a class="btn ghost" id="preview" href="/s/${slug}" target="_blank" rel="noopener">Preview</a><button class="btn" id="save" type="button">Save changes</button></div>
   <section class="card danger"><h3>Delete this survey</h3><p class="muted">The survey and its link stop working. Its responses are archived on the server, not shown anywhere.</p><button class="btn danger" id="del" type="button">Delete survey</button></section>`,
-  { script: '<script src="/admin-edit.js"></script>' });
+  { script: '<script src="/theme.js"></script><script src="/admin-edit.js"></script>' });
 
 // ---------- server ----------
 const server = http.createServer(async (req, res) => {
@@ -235,7 +243,10 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && (m = p.match(/^\/s\/([^/]+)$/))) {
       if (!loadSurvey(m[1])) return send(404, page('Not found', '<h1>Survey not found</h1><p class="muted">Check the link or QR code.</p>', { nav: false }));
-      return send(200, fs.readFileSync(path.join(PUBLIC, 'index.html')));
+      let html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
+      const vars = T.themeVars(loadSurvey(m[1]).theme); // inject colours server-side so there is no flash of the default look
+      if (vars) html = html.replace('</head>', `<style>html:root{${Object.entries(vars).map(([k, v]) => `${k}:${v}`).join(';')}}</style></head>`);
+      return send(200, html);
     }
     if (req.method === 'GET' && (m = p.match(/^\/api\/survey\/([^/]+)$/))) {
       const s = loadSurvey(m[1]);

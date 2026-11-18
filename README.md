@@ -14,6 +14,7 @@ The server refuses to start in production (when `BASE_URL` is set) with the defa
 
 - Create a survey (blank, or a copy of an existing one) and edit its title, intro, thank-you message and questions.
 - Question types: typed answer, choose-one (with an optional follow-up question for chosen answers), rating 1-5.
+- Colours: pick a preset (Toastmasters, Ocean, Forest, Plum, Midnight) or set the page background, cards, text, buttons and title colours individually, with a live preview and readability warnings. Each survey keeps its own colours.
 - Results, CSV download and printable QR code for each survey.
 - Deleting a survey archives it (and its responses) in `DATA_DIR/deleted/`.
 - Editing keeps existing answers. Deleted questions stay in the results and CSV marked "(removed)".
