@@ -18,6 +18,13 @@ fetch(`/api/survey/${slug}`).then((r) => r.json()).then((s) => {
       for (let n = 1; n <= 5; n++) { const b = el('button', 'dot', n); b.type = 'button'; b.setAttribute('aria-label', `${n} of 5`);
         b.onclick = () => { answers[q.id] = n; [...row.children].forEach((x, k) => x.classList.toggle('on', k + 1 === n)); }; row.append(b); }
       c.append(row); const l = el('div', 'ends'); l.append(el('span', '', q.low || ''), el('span', '', q.high || '')); c.append(l);
+    } else if (q.type === 'multi') {
+      c.append(el('p', 'hint', 'Select all that apply'));
+      const row = el('div', 'choices'), picked = new Set();
+      q.options.forEach((o) => { const b = el('button', 'chip', o); b.type = 'button'; b.setAttribute('aria-pressed', 'false');
+        b.onclick = () => { picked.has(o) ? picked.delete(o) : picked.add(o); b.classList.toggle('on', picked.has(o)); b.setAttribute('aria-pressed', String(picked.has(o))); answers[q.id] = q.options.filter((x) => picked.has(x)); };
+        row.append(b); });
+      c.append(row);
     } else if (q.type === 'choice') {
       const row = el('div', 'choices');
       q.options.forEach((o) => { const b = el('button', 'chip', o); b.type = 'button';
@@ -51,7 +58,7 @@ $('#anon').onchange = (e) => { $('#nameWrap').hidden = e.target.checked; if (e.t
 $('#f').onsubmit = async (e) => {
   e.preventDefault(); $('#err').textContent = '';
   document.querySelectorAll('.card.bad').forEach((c) => c.classList.remove('bad'));
-  const missing = survey.questions.find((q) => q.required && !answers[q.id]);
+  const missing = survey.questions.find((q) => q.required && !(Array.isArray(answers[q.id]) ? answers[q.id].length : answers[q.id]));
   if (missing) { const c = document.querySelector(`[data-id=${missing.id}]`); c.classList.add('bad'); c.scrollIntoView({ behavior: 'smooth', block: 'center' }); $('#err').textContent = 'Please answer the highlighted question.'; return; }
   $('#go').disabled = true;
   const anonymous = $('#anon').checked;

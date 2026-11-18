@@ -70,7 +70,7 @@ function buildTheme() {
 }
 
 const swap = (i, j) => { [S.questions[i], S.questions[j]] = [S.questions[j], S.questions[i]]; mark(); render(); };
-const TYPE_NAMES = { text: 'Typed answer', choice: 'Choose one (e.g. Easy / Moderate / Hard)', rating: 'Rating 1–5' };
+const TYPE_NAMES = { text: 'Typed answer', choice: 'Choose one (e.g. Easy / Moderate / Hard)', multi: 'Choose several (tick all that apply)', rating: 'Rating 1–5' };
 
 function card(q, i) {
   const c = el('section', 'card q');
@@ -89,7 +89,7 @@ function card(q, i) {
   sel.value = q.type;
   sel.onchange = () => {
     q.type = sel.value;
-    if (q.type === 'choice' && !q.options) q.options = ['Option 1', 'Option 2'];
+    if ((q.type === 'choice' || q.type === 'multi') && !q.options) q.options = ['Option 1', 'Option 2'];
     if (q.type !== 'choice') delete q.followUp;
     mark(); render();
   };
@@ -103,7 +103,8 @@ function card(q, i) {
     r.append(field('Label for 1 (optional)', textInput(q.low, 'e.g. Needs work', 40, (v) => (q.low = v))), field('Label for 5 (optional)', textInput(q.high, 'e.g. Excellent', 40, (v) => (q.high = v))));
     c.append(r);
   }
-  if (q.type === 'choice') {
+  if (q.type === 'choice' || q.type === 'multi') {
+    const isChoice = q.type === 'choice';
     const fuBox = el('div', 'fubox');
     const buildFu = () => {
       fuBox.textContent = '';
@@ -130,8 +131,8 @@ function card(q, i) {
       box.append(w); fuBox.append(box);
     };
     const opts = area((q.options || []).join('\n'), 4, 700, (v) => (q.options = v.split('\n').map((x) => x.trim()).filter(Boolean)));
-    opts.onchange = () => buildFu();
-    c.append(field('Choices (one per line)', opts), fuBox); buildFu();
+    opts.onchange = () => isChoice && buildFu();
+    c.append(field('Choices (one per line)', opts)); if (isChoice) { c.append(fuBox); buildFu(); }
   }
   return c;
 }

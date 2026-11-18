@@ -49,7 +49,8 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 const baseUrl = (req) => (process.env.BASE_URL || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}`).replace(/\/$/, '');
 const qrSvg = (text, margin = 2) => QRCode.toString(text, { type: 'svg', margin, errorCorrectionLevel: 'M' });
 const clean = (v) => (v == null ? '' : String(v).trim().slice(0, 2000));
-const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+const csvCell = (v) => `"${String(Array.isArray(v) ? v.join('; ') : (v ?? '')).replace(/"/g, '""')}"`;
+const fmt = (v) => (Array.isArray(v) ? v.join(', ') : v); // tick-several answers are stored as arrays
 
 function readBody(req, limit = 50000) {
   return new Promise((resolve, reject) => {
@@ -110,7 +111,7 @@ function normalizeSurvey(input, old) {
   for (const [i, q] of input.questions.entries()) {
     const num = i + 1;
     if (!q || typeof q !== 'object') return err(`Question ${num} is invalid.`);
-    if (!['text', 'choice', 'rating'].includes(q.type)) return err(`Question ${num}: unknown type.`);
+    if (!['text', 'choice', 'multi', 'rating'].includes(q.type)) return err(`Question ${num}: unknown type.`);
     const label = str(q.label, 300);
     if (!label) return err(`Question ${num} needs some wording.`);
     const out = { id: takeId(q.id, oldQ), type: q.type, label, required: !!q.required };
@@ -123,7 +124,7 @@ function normalizeSurvey(input, old) {
       const options = [...new Set((Array.isArray(q.options) ? q.options : []).map((o) => str(o, 60)).filter(Boolean))];
       if (options.length < 2 || options.length > 10) return err(`Question ${num}: give between 2 and 10 different choices.`);
       out.options = options;
-      if (q.followUp && typeof q.followUp === 'object') {
+      if (q.type === 'choice' && q.followUp && typeof q.followUp === 'object') {
         const fl = str(q.followUp.label, 300);
         if (!fl) return err(`Question ${num}: the follow-up question needs some wording.`);
         const when = options.filter((o) => Array.isArray(q.followUp.when) && q.followUp.when.includes(o));
@@ -166,6 +167,14 @@ function normalizeSurvey(input, old) {
 function validateAnswers(survey, body) {
   const answers = {}, given = (body && body.answers) || {};
   for (const q of survey.questions) {
+    if (q.type === 'multi') { // tick several: stored as an array in the order of the options, or '' if none
+      const arr = Array.isArray(given[q.id]) ? given[q.id].map(String) : given[q.id] ? [String(given[q.id])] : [];
+      if (arr.some((x) => !q.options.includes(x))) return { error: `Invalid answer for "${q.label}"` };
+      const picked = q.options.filter((o) => arr.includes(o));
+      if (q.required && !picked.length) return { error: `Please answer: ${q.label}` };
+      answers[q.id] = picked.length ? picked : '';
+      continue;
+    }
     const v = clean(given[q.id]);
     if (q.type === 'rating' && v && !/^[1-5]$/.test(v)) return { error: `Invalid answer for "${q.label}"` };
     if (q.type === 'choice' && v && !q.options.includes(v)) return { error: `Invalid answer for "${q.label}"` };
@@ -221,7 +230,7 @@ async function adminSurvey(req, slug) {
 
   // view 1: one card per submission
   const bySubmission = newest.map((r) => `<article class="card"><header><strong>${who(r)}</strong><time>${when(r)}</time></header>
-    ${cols.map(([id, label]) => (r.answers[id] ? `<p><span>${esc(label)}</span>${esc(r.answers[id])}</p>` : '')).join('')}
+    ${cols.map(([id, label]) => (r.answers[id] ? `<p><span>${esc(label)}</span>${esc(fmt(r.answers[id]))}</p>` : '')).join('')}
     <button type="button" class="delbtn" data-id="${esc(r.id)}" data-who="${who(r)}">Delete this submission</button></article>`).join('')
     || '<p class="muted">No responses yet.</p>';
 
@@ -229,7 +238,7 @@ async function adminSurvey(req, slug) {
   const list = (id, tagId) => {
     const items = newest.filter((r) => r.answers[id]);
     return items.length
-      ? `<ul class="alist">${items.map((r) => `<li>${tagId ? `<em class="tag">${esc(r.answers[tagId])}</em>` : ''}<span>${esc(r.answers[id])}</span><small>${who(r)} · ${when(r)}</small></li>`).join('')}</ul>`
+      ? `<ul class="alist">${items.map((r) => `<li>${tagId ? `<em class="tag">${esc(r.answers[tagId])}</em>` : ''}<span>${esc(fmt(r.answers[id]))}</span><small>${who(r)} · ${when(r)}</small></li>`).join('')}</ul>`
       : '<p class="muted">No answers yet.</p>';
   };
   const bars = (rows, total) => rows.map(([label, n]) => {
@@ -241,9 +250,17 @@ async function adminSurvey(req, slug) {
     return bars([...opts.map((o) => [o, vals.filter((v) => v === o).length]), ...extra.map((o) => [`${o} (older choice)`, vals.filter((v) => v === o).length])], vals.length);
   };
   const questionCards = s.questions.map((q, i) => {
-    const vals = rs.map((r) => r.answers[q.id]).filter(Boolean);
-    let body = '';
-    if (q.type === 'choice' || q.type === 'rating') {
+    const toArr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+    const raw = rs.map((r) => r.answers[q.id]).filter(Boolean);
+    const vals = raw.flatMap(toArr);
+    let answered = vals.length, body = '';
+    if (q.type === 'multi') {
+      const picks = raw.map(toArr).filter((a) => a.length);
+      answered = picks.length;
+      const extra = [...new Set(picks.flat().filter((v) => !q.options.includes(v)))];
+      body += bars([...q.options, ...extra].map((o) => [q.options.includes(o) ? o : `${o} (older choice)`, picks.filter((a) => a.includes(o)).length]), picks.length);
+      body += '<p class="muted">People could tick several answers, so percentages can add up to more than 100%.</p>';
+    } else if (q.type === 'choice' || q.type === 'rating') {
       const opts = q.type === 'choice' ? q.options : ['1', '2', '3', '4', '5'];
       body += tally(opts, vals);
       if (q.type === 'rating' && vals.length) body += `<p class="muted">Average: <b>${(vals.reduce((a, v) => a + +v, 0) / vals.length).toFixed(1)}</b> / 5</p>`;
@@ -253,7 +270,7 @@ async function adminSurvey(req, slug) {
           (q.followUp.type === 'choice' ? `<p class="muted">${fvals.length} answer${fvals.length === 1 ? '' : 's'}</p>${tally(q.followUp.options, fvals)}` : list(q.followUp.id, q.id));
       }
     } else body = list(q.id);
-    return `<section class="card qv"><h3>${i + 1}. ${esc(q.label)}</h3><p class="muted">${vals.length} answer${vals.length === 1 ? '' : 's'}</p>${body}</section>`;
+    return `<section class="card qv"><h3>${i + 1}. ${esc(q.label)}</h3><p class="muted">${answered} answer${answered === 1 ? '' : 's'}</p>${body}</section>`;
   }).join('');
   const retiredCards = (s.retired || []).filter((r) => rs.some((x) => x.answers[r.id])).map((r) =>
     `<section class="card qv"><h3>${esc(r.label)} <small>(removed question)</small></h3>${list(r.id)}</section>`).join('');

@@ -75,3 +75,5 @@ code{background:var(--line);padding:2px 6px;border-radius:6px}.admin a{color:var
 .star{color:var(--accent);font-weight:700}.reqnote{font-size:.85rem;color:var(--muted);margin:14px 4px 0}
 
 .delbtn{background:none;border:0;color:#b3382c;font:inherit;font-size:.85rem;text-decoration:underline;cursor:pointer;padding:0;margin-top:10px}
+
+.hint{margin:-6px 0 10px;font-size:.85rem;color:var(--muted)}
